@@ -998,10 +998,157 @@
       width: 6px;
       height: 6px;
     }
+
+    /* ═══════════════════════════════════════
+       WELCOME GATE
+    ═══════════════════════════════════════ */
+    #welcome-gate {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--cream);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      transition: opacity 1s cubic-bezier(0.16, 1, 0.3, 1), visibility 1s;
+      cursor: pointer;
+    }
+
+    #welcome-gate.dismissed {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .welcome-bg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image:
+        radial-gradient(circle at 50% 50%, rgba(201, 168, 76, 0.15) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .gate-corner {
+      position: absolute;
+      width: 250px;
+      max-width: 40vw;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .gate-corner.top-left {
+      top: -10px;
+      left: -10px;
+    }
+
+    .gate-corner.bottom-right {
+      bottom: -10px;
+      right: -10px;
+    }
+
+    .gate-content {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px;
+    }
+
+    .gate-image-container {
+      width: 200px;
+      height: 200px;
+      margin-bottom: 40px;
+      border-radius: 50%;
+      padding: 6px;
+      border: 3px solid var(--gold);
+      background: rgba(253, 246, 236, 0.4);
+      animation: gateFloat 4s ease-in-out infinite;
+      box-shadow: 0 4px 32px var(--shadow-gold);
+    }
+
+    .gate-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 50%;
+    }
+
+    .gate-prompt {
+      font-family: var(--font-body);
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--burgundy-deep);
+      text-transform: uppercase;
+      letter-spacing: 0.3em;
+      animation: pulseGlowText 2s ease-in-out infinite;
+      padding: 14px 40px;
+      border: 1px solid var(--gold);
+      border-radius: 50px;
+      background: rgba(255, 255, 255, 0.5);
+      transition: background 0.3s, transform 0.3s;
+    }
+
+    .gate-prompt:hover {
+      background: var(--gold-light);
+      transform: scale(1.05);
+    }
+
+    @keyframes gateFloat {
+
+      0%,
+      100% {
+        transform: translateY(0);
+      }
+
+      50% {
+        transform: translateY(-12px);
+      }
+    }
+
+    @keyframes pulseGlowText {
+
+      0%,
+      100% {
+        opacity: 0.7;
+        box-shadow: 0 0 0 rgba(201, 168, 76, 0);
+      }
+
+      50% {
+        opacity: 1;
+        box-shadow: 0 0 15px rgba(201, 168, 76, 0.4);
+      }
+    }
   </style>
 </head>
 
 <body>
+
+  <!-- ═══════════════════════════════════════
+       WELCOME GATE
+  ═══════════════════════════════════════ -->
+  <div id="welcome-gate" aria-label="Welcome Gate">
+    <div class="welcome-bg" aria-hidden="true"></div>
+
+    <img src="left.png" class="gate-corner top-left" aria-hidden="true" alt="">
+    <img src="right.png" class="gate-corner bottom-right" aria-hidden="true" alt="">
+
+    <div class="gate-content">
+      <div class="gate-image-container">
+        <img src="KrishRadh.png" alt="Love and Blessings" class="gate-image" />
+      </div>
+      <div class="gate-prompt">Tap to Enter</div>
+    </div>
+  </div>
 
   <!-- ═══════════════════════════════════════
        HERO SECTION
@@ -1518,18 +1665,18 @@
     (function () {
       'use strict';
       const audio = document.getElementById('bg-music');
-      const interactions = ['click', 'scroll', 'touchstart', 'mousedown', 'keydown'];
-      
+      const welcomeGate = document.getElementById('welcome-gate');
+      let isMusicInitialized = false;
+
       function initAudio() {
-        if (!audio) return;
-        
-        // Try to un-mute and play
+        if (!audio || isMusicInitialized) return;
+
         audio.muted = false;
         const playPromise = audio.play();
-        
+
         if (playPromise !== undefined) {
           playPromise.then(() => {
-            // Success! Fade in volume from 0 to 0.35
+            isMusicInitialized = true;
             audio.volume = 0;
             let fadeIn = setInterval(() => {
               if (audio.volume < 0.35) {
@@ -1538,28 +1685,36 @@
                 clearInterval(fadeIn);
               }
             }, 50);
-            
-            // Clean up listeners
-            interactions.forEach(event => {
-              document.removeEventListener(event, initAudio);
-            });
           }).catch(error => {
-            console.warn("Playback blocked, still waiting for user interaction:", error);
+            console.warn("Playback blocked:", error);
           });
         }
       }
 
-      // Add listeners for various user gestures
-      interactions.forEach(event => {
-        document.addEventListener(event, initAudio, { once: true, passive: true });
-      });
+      if (welcomeGate) {
+        // Lock scroll while gate is active
+        document.body.style.overflow = 'hidden';
 
-      // Attempt to start muted playback immediately on load
-      window.addEventListener('load', () => {
-         if(audio) {
-           audio.muted = true;
-           audio.play().catch(() => {});
-         }
+        // Listen for the first tap to dismiss and play music
+        welcomeGate.addEventListener('click', function (e) {
+          e.preventDefault();
+          welcomeGate.classList.add('dismissed');
+          document.body.style.overflow = '';
+          initAudio();
+        });
+      }
+
+      // Pause music if the user switches tabs, resume when they come back to view the site
+      document.addEventListener('visibilitychange', () => {
+        if (!audio) return;
+        if (document.hidden) {
+          audio.pause();
+        } else if (isMusicInitialized) {
+          const playPromise = audio.play();
+          if (playPromise !== undefined) {
+            playPromise.catch(() => { });
+          }
+        }
       });
     })();
   </script>
