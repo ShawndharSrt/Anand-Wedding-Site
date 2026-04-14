@@ -12,14 +12,16 @@
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://anand-wedding-site.vercel.app/" />
   <meta property="og:title" content="Wedding Invitation — Anand & Myvizhiyashini | May 2026" />
-  <meta property="og:description" content="You are cordially invited to celebrate the wedding of our beloved couple. Reception: May 26, 2026. Marriage: May 27, 2026." />
+  <meta property="og:description"
+    content="You are cordially invited to celebrate the wedding of our beloved couple. Reception: May 26, 2026. Marriage: May 27, 2026." />
   <meta property="og:image" content="https://anand-wedding-site.vercel.app/KrishRadh.png" />
 
   <!-- Twitter -->
   <meta property="twitter:card" content="summary_large_image" />
   <meta property="twitter:url" content="https://anand-wedding-site.vercel.app/" />
   <meta property="twitter:title" content="Wedding Invitation — Anand & Myvizhiyashini | May 2026" />
-  <meta property="twitter:description" content="You are cordially invited to celebrate the wedding of our beloved couple. Reception: May 26, 2026. Marriage: May 27, 2026." />
+  <meta property="twitter:description"
+    content="You are cordially invited to celebrate the wedding of our beloved couple. Reception: May 26, 2026. Marriage: May 27, 2026." />
   <meta property="twitter:image" content="https://anand-wedding-site.vercel.app/KrishRadh.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -1681,6 +1683,50 @@
       const audio = document.getElementById('bg-music');
       const welcomeGate = document.getElementById('welcome-gate');
       let isMusicInitialized = false;
+      let musicStopped = false;
+      const MUSIC_DURATION = 60000; // 1 minute in milliseconds
+      const FADE_OUT_DURATION = 5000; // 5 seconds fade-out
+      let musicStartTime = 0;
+      let elapsedBeforePause = 0;
+      let stopTimeout = null;
+      let fadeOutTimeout = null;
+
+      function fadeOutAndStop() {
+        if (!audio || musicStopped) return;
+        musicStopped = true;
+        clearTimeout(stopTimeout);
+        clearTimeout(fadeOutTimeout);
+
+        const fadeSteps = 30;
+        const fadeInterval = FADE_OUT_DURATION / fadeSteps;
+        const volumeStep = audio.volume / fadeSteps;
+
+        let step = 0;
+        const fade = setInterval(() => {
+          step++;
+          audio.volume = Math.max(audio.volume - volumeStep, 0);
+          if (step >= fadeSteps || audio.volume <= 0) {
+            clearInterval(fade);
+            audio.pause();
+            audio.volume = 0;
+          }
+        }, fadeInterval);
+      }
+
+      function scheduleMusicStop() {
+        const remaining = MUSIC_DURATION - elapsedBeforePause;
+        if (remaining <= 0) {
+          fadeOutAndStop();
+          return;
+        }
+
+        clearTimeout(fadeOutTimeout);
+        clearTimeout(stopTimeout);
+
+        const fadeStart = Math.max(remaining - FADE_OUT_DURATION, 0);
+        fadeOutTimeout = setTimeout(fadeOutAndStop, fadeStart);
+        musicStartTime = Date.now();
+      }
 
       function initAudio() {
         if (!audio || isMusicInitialized) return;
@@ -1699,6 +1745,10 @@
                 clearInterval(fadeIn);
               }
             }, 50);
+
+            // Schedule auto-stop after 1 minute
+            musicStartTime = Date.now();
+            scheduleMusicStop();
           }).catch(error => {
             console.warn("Playback blocked:", error);
           });
@@ -1718,15 +1768,25 @@
         });
       }
 
-      // Pause music if the user switches tabs, resume when they come back to view the site
+      // Pause music if the user switches tabs, resume when they come back
       document.addEventListener('visibilitychange', () => {
-        if (!audio) return;
+        if (!audio || musicStopped) return;
         if (document.hidden) {
+          // Track how much time has elapsed
+          elapsedBeforePause += (Date.now() - musicStartTime);
+          clearTimeout(fadeOutTimeout);
+          clearTimeout(stopTimeout);
           audio.pause();
         } else if (isMusicInitialized) {
+          if (elapsedBeforePause >= MUSIC_DURATION) {
+            // Already exceeded 1 minute, don't resume
+            return;
+          }
           const playPromise = audio.play();
           if (playPromise !== undefined) {
-            playPromise.catch(() => { });
+            playPromise.then(() => {
+              scheduleMusicStop();
+            }).catch(() => { });
           }
         }
       });
